@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>معالجة جهات الاتصال</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <h1 class="text-center mb-4">معالجة جهات الاتصال وإزالة التكرارات</h1>
+
+      <div class="card p-4 mb-4 shadow-lg">
+        <h3><i class="bi bi-upload me-2"></i>رفع ملف جهات الاتصال</h3>
+        <input type="file" id="contactFile" class="form-control mb-3" />
+        <button id="processBtn" class="btn btn-primary">
+          <i class="bi bi-gear-fill me-2"></i>معالجة الملف
+        </button>
+        <div id="progressContainer" class="mt-3 d-none">
+          <div class="progress">
+            <div
+              id="progressBar"
+              class="progress-bar progress-bar-striped progress-bar-animated"
+              role="progressbar"
+              style="width: 0%"
+              aria-valuenow="0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            ></div>
+          </div>
+          <p class="text-center mt-2">جاري المعالجة...</p>
+        </div>
+      </div>
+
+      <div id="duplicates" class="card p-4 mb-4 d-none shadow-lg">
+        <h3>
+          <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>الجهات
+          المتكررة
+        </h3>
+        <p>عدد التكرارات: <span id="duplicateCount">0</span></p>
+        <div
+          id="duplicateList"
+          class="mt-3"
+          style="max-height: 200px; overflow-y: auto"
+        ></div>
+        <button id="removeDuplicatesBtn" class="btn btn-danger mt-3">
+          <i class="bi bi-trash-fill me-2"></i>إزالة التكرارات
+        </button>
+      </div>
+
+      <div id="loadingBar" class="loading-bar d-none">
+        <div class="loading-bar-inner"></div>
+      </div>
+
+      <div id="successBanner" class="alert alert-success d-none" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>تم إزالة التكرارات بنجاح!
+      </div>
+
+      <div id="results" class="card p-4 d-none shadow-lg">
+        <h3>
+          <i class="bi bi-check-circle-fill me-2 text-success"></i>النتائج
+        </h3>
+        <p>عدد جهات الاتصال الأصلية: <span id="originalCount">0</span></p>
+        <p>
+          عدد جهات الاتصال بعد إزالة التكرارات: <span id="uniqueCount">0</span>
+        </p>
+        <div class="mt-3">
+          <label for="fileExtension">اختر امتداد الملف للتنزيل:</label>
+          <select id="fileExtension" class="form-select mb-3">
+            <option value="txt">TXT</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button id="downloadBtn" class="btn btn-success">
+            <i class="bi bi-download me-2"></i>تنزيل الملف المعالج
+          </button>
+        </div>
+        <div
+          id="contactList"
+          class="mt-3"
+          style="max-height: 300px; overflow-y: auto"
+        ></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
