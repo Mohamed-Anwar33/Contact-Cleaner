@@ -63,6 +63,11 @@ h1 {
   transform: scale(1.05);
 }
 
+.btn-secondary {
+  background-color: #6c757d;
+  border: none;
+}
+
 .progress {
   height: 25px;
   border-radius: 50px;
@@ -78,7 +83,8 @@ h1 {
 }
 
 #contactList p,
-#duplicateList p {
+#duplicateNameList p,
+#duplicateNumberList p {
   background-color: #f8f9fa;
   padding: 10px;
   border-radius: 5px;

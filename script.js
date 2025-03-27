@@ -13,6 +13,11 @@ function processFile() {
     return;
   }
 
+  if (!file.name.endsWith(".vcf")) {
+    alert("يرجى رفع ملف بصيغة VCF!");
+    return;
+  }
+
   progressContainer.classList.remove("d-none");
   progressBar.style.width = "0%";
   progressBar.setAttribute("aria-valuenow", 0);
@@ -45,18 +50,49 @@ function processFile() {
     progressBar.style.width = "20%";
     progressBar.setAttribute("aria-valuenow", 20);
 
-    const lines = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line !== "");
-    processContactsWithWorker(lines);
+    // تحليل ملف VCF
+    const contacts = parseVCF(text);
+    if (contacts.length === 0) {
+      alert("لم يتم العثور على جهات اتصال في الملف!");
+      progressContainer.classList.add("d-none");
+      return;
+    }
+
+    allContacts = contacts;
+    processContactsWithWorker(contacts);
   };
   reader.readAsArrayBuffer(file);
 }
 
+// دالة لتحليل ملف VCF
+function parseVCF(text) {
+  const contacts = [];
+  const vCards = text.split("BEGIN:VCARD").slice(1);
+
+  vCards.forEach((vCard) => {
+    const lines = vCard.split(/\r?\n/);
+    let name = "";
+    let number = "";
+
+    lines.forEach((line) => {
+      if (line.startsWith("FN:")) {
+        name = line.replace("FN:", "").trim();
+      }
+      if (line.startsWith("TEL")) {
+        number = line.split(":")[1]?.trim().replace(/\s|-/g, "");
+      }
+    });
+
+    if (name && number) {
+      contacts.push({ name, number });
+    }
+  });
+
+  return contacts;
+}
+
 function processContactsWithWorker(contacts) {
   const progressBar = document.getElementById("progressBar");
-  allContacts = contacts.slice(0, 1000000);
 
   const worker = new Worker(
     URL.createObjectURL(
@@ -65,23 +101,35 @@ function processContactsWithWorker(contacts) {
           `
         onmessage = function(e) {
             const contacts = e.data;
-            const contactMap = new Map();
-            const duplicates = [];
 
-            contacts.forEach((contact, index) => {
-                if (contactMap.has(contact)) {
-                    contactMap.set(contact, contactMap.get(contact) + 1);
-                    if (contactMap.get(contact) === 2) duplicates.push(contact);
+            // تكرارات الأسماء
+            const nameMap = new Map();
+            const duplicateNames = [];
+            contacts.forEach(contact => {
+                const name = contact.name;
+                if (nameMap.has(name)) {
+                    nameMap.set(name, nameMap.get(name) + 1);
+                    if (nameMap.get(name) === 2) duplicateNames.push(name);
                 } else {
-                    contactMap.set(contact, 1);
-                }
-                if (index % 10000 === 0) {
-                    postMessage({ progress: (index / contacts.length) * 80 + 20 });
+                    nameMap.set(name, 1);
                 }
             });
 
-            const uniqueContacts = [...contactMap.keys()];
-            postMessage({ duplicates, uniqueContacts, progress: 100 });
+            // تكرارات الأرقام
+            const numberMap = new Map();
+            const duplicateNumbers = [];
+            contacts.forEach(contact => {
+                const number = contact.number;
+                if (numberMap.has(number)) {
+                    numberMap.set(number, numberMap.get(number) + 1);
+                    if (numberMap.get(number) === 2) duplicateNumbers.push(number);
+                } else {
+                    numberMap.set(number, 1);
+                }
+            });
+
+            const uniqueNumbers = [...numberMap.keys()];
+            postMessage({ duplicateNames, duplicateNumbers, uniqueNumbers, progress: 100 });
         };
     `,
         ],
@@ -91,44 +139,56 @@ function processContactsWithWorker(contacts) {
   );
 
   worker.onmessage = function (e) {
-    const { progress, duplicates, uniqueContacts: uniques } = e.data;
+    const { progress, duplicateNames, duplicateNumbers, uniqueNumbers } =
+      e.data;
     progressBar.style.width = `${progress}%`;
     progressBar.setAttribute("aria-valuenow", progress);
 
     if (progress === 100) {
-      uniqueContacts = uniques;
+      uniqueContacts = uniqueNumbers;
       document.getElementById("progressContainer").classList.add("d-none");
-      displayDuplicates(duplicates);
+      displayDuplicates(duplicateNames, duplicateNumbers);
     }
   };
 
-  worker.postMessage(allContacts);
+  worker.postMessage(contacts);
 }
 
-function displayDuplicates(duplicates) {
+function displayDuplicates(duplicateNames, duplicateNumbers) {
   const duplicatesDiv = document.getElementById("duplicates");
-  const duplicateCountSpan = document.getElementById("duplicateCount");
-  const duplicateListDiv = document.getElementById("duplicateList");
+  const duplicateNameCountSpan = document.getElementById("duplicateNameCount");
+  const duplicateNameListDiv = document.getElementById("duplicateNameList");
+  const duplicateNumberCountSpan = document.getElementById(
+    "duplicateNumberCount"
+  );
+  const duplicateNumberListDiv = document.getElementById("duplicateNumberList");
 
-  duplicateCountSpan.textContent = duplicates.length;
-  duplicateListDiv.innerHTML = duplicates
-    .map((dup) => `<p>${dup}</p>`)
+  // عرض تكرارات الأسماء
+  duplicateNameCountSpan.textContent = duplicateNames.length;
+  duplicateNameListDiv.innerHTML = duplicateNames
+    .map((name) => `<p>${name}</p>`)
     .join("");
+
+  // عرض تكرارات الأرقام
+  duplicateNumberCountSpan.textContent = duplicateNumbers.length;
+  duplicateNumberListDiv.innerHTML = duplicateNumbers
+    .map((number) => `<p>${number}</p>`)
+    .join("");
+
   duplicatesDiv.classList.remove("d-none");
 
-  document
-    .getElementById("removeDuplicatesBtn")
-    .addEventListener("click", () => {
-      const loadingBar = document.getElementById("loadingBar");
-      loadingBar.classList.remove("d-none");
+  // زر دمج بناءً على الأرقام
+  document.getElementById("mergeByNumbersBtn").addEventListener("click", () => {
+    const loadingBar = document.getElementById("loadingBar");
+    loadingBar.classList.remove("d-none");
 
-      duplicatesDiv.classList.add("d-none");
+    duplicatesDiv.classList.add("d-none");
 
-      setTimeout(() => {
-        loadingBar.classList.add("d-none");
-        displayResults(allContacts.length, uniqueContacts);
-      }, 2000);
-    });
+    setTimeout(() => {
+      loadingBar.classList.add("d-none");
+      displayResults(allContacts.length, uniqueContacts);
+    }, 2000);
+  });
 }
 
 function displayResults(originalCount, uniqueContacts) {
@@ -143,12 +203,10 @@ function displayResults(originalCount, uniqueContacts) {
     .map((contact) => `<p>${contact}</p>`)
     .join("");
 
-  // إظهار البانر وإخفاؤه بعد 3 ثواني
   const successBanner = document.getElementById("successBanner");
   successBanner.classList.remove("d-none");
   successBanner.classList.add("show");
 
-  // إخفاء البانر بعد 3 ثواني
   setTimeout(() => {
     successBanner.classList.remove("show");
     successBanner.classList.add("d-none");
@@ -163,12 +221,25 @@ function displayResults(originalCount, uniqueContacts) {
 }
 
 function downloadFile(uniqueContacts, extension) {
-  let content = uniqueContacts.join("\n");
-  let mimeType = "text/plain";
+  let content;
+  let mimeType;
 
-  if (extension === "csv") {
+  if (extension === "vcf") {
+    // إنشاء ملف VCF
+    content = uniqueContacts
+      .map((number, index) => {
+        return `BEGIN:VCARD\nVERSION:3.0\nFN:Contact ${
+          index + 1
+        }\nTEL:${number}\nEND:VCARD`;
+      })
+      .join("\n");
+    mimeType = "text/vcard";
+  } else if (extension === "csv") {
     content = uniqueContacts.join("\n");
     mimeType = "text/csv";
+  } else {
+    content = uniqueContacts.join("\n");
+    mimeType = "text/plain";
   }
 
   const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
